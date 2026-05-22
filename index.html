@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NC Motors | Sanal Galari</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDkn3Lppv_nGBy5mDkaRAPUkhBLhdFfOkc",
+            authDomain: "nc-motors.firebaseapp.com",
+            projectId: "nc-motors",
+            storageBucket: "nc-motors.firebasestorage.app",
+            messagingSenderId: "251338263435",
+            appId: "1:251338263435:web:bc0b5e00aa5dd32c2cbd8e",
+            measurementId: "G-N3TL2HW4QD"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const whatsappNumber = "905469190660"; // Amcanın no
+
+        async function loadCars() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "cars"));
+                const carList = document.getElementById('carList');
+                carList.innerHTML = ""; 
+
+                if(querySnapshot.empty) {
+                    carList.innerHTML = `<div class="col-span-1 md:col-span-2 text-center text-slate-500 py-12">Panelden henüz hiç araç eklenmemiş blud!</div>`;
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const car = doc.data();
+                    const formattedPrice = parseInt(car.price).toLocaleString();
+                    const formattedKm = parseInt(car.km).toLocaleString();
+                    
+                    // Satıldı mı kontrolü
+                    const isSold = car.status === "sold";
+
+                    const textMessage = `Merhaba NC Motors, sitenizdeki şu araç ilanı için bilgi almak istiyorum:\n\n` +
+                                        `🚗 *İlan:* ${car.title}\n` +
+                                        `🚘 *Model:* ${car.model}\n` +
+                                        `🛣️ *KM:* ${formattedKm}\n` +
+                                        `💰 *Fiyat:* ${formattedPrice} TL\n\n` +
+                                        `Müsait misiniz?`;
+
+                    const waLink = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(textMessage)}`;
+
+                    // Satıldıysa kırmızı, aktifse mavi etiket raconu
+                    const badge = isSold 
+                        ? `<div class="absolute top-4 right-4 bg-red-600 px-4 py-1.5 rounded-full text-xs font-black text-white uppercase shadow-lg tracking-wider animate-pulse">SATILDI</div>`
+                        : `<div class="absolute top-4 right-4 bg-blue-600 px-4 py-1.5 rounded-full text-xs font-bold text-white uppercase shadow-lg">Stokta</div>`;
+
+                    // Satıldıysa butonu kapat veya kilitle
+                    const actionButton = isSold
+                        ? `<button disabled class="flex items-center justify-center gap-2 px-5 py-3 bg-slate-800 text-slate-500 font-bold text-sm rounded-xl cursor-not-allowed">Satılmıştır</button>`
+                        : `<a href="${waLink}" target="_blank" class="flex items-center justify-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95">Bize Ulaş</a>`;
+
+                    const carCard = `
+                        <div class="group bg-slate-900 border ${isSold ? 'border-red-950/40 opacity-75' : 'border-slate-800'} rounded-3xl overflow-hidden shadow-2xl transition-all duration-300 hover:border-blue-500/30 flex flex-col justify-between">
+                            <div>
+                                <div class="relative overflow-hidden h-64 bg-slate-950">
+                                    <img src="${car.img}" class="w-full h-full object-cover transition-transform duration-500 ${isSold ? 'grayscale' : 'group-hover:scale-105'}" alt="NC Motors">
+                                    ${badge}
+                                </div>
+                                <div class="p-6 space-y-4">
+                                    <div>
+                                        <h3 class="text-2xl font-extrabold text-white transition-colors line-clamp-1">${car.title}</h3>
+                                        <p class="text-sm text-slate-400 mt-1"><i class="fa-solid fa-car text-blue-500 mr-2"></i>${car.model}</p>
+                                    </div>
+                                    <p class="text-sm text-slate-400 border-l-2 border-slate-700 pl-3 italic line-clamp-2">${car.desc ? car.desc : "Açıklama girilmedi."}</p>
+                                    <div class="flex items-center text-sm text-slate-300 bg-slate-800/50 px-4 py-2 rounded-xl w-fit">
+                                        <i class="fa-solid fa-gauge-high text-blue-500 mr-2"></i><span>${formattedKm} KM</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="p-6 pt-0">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-slate-800/80">
+                                    <div>
+                                        <p class="text-xs text-slate-500 font-semibold uppercase">Fiyat</p>
+                                        <p class="text-2xl font-black ${isSold ? 'text-slate-500 line-through' : 'text-green-400'}">${formattedPrice} TL</p>
+                                    </div>
+                                    ${actionButton}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    carList.innerHTML += carCard;
+                });
+            } catch (e) {
+                document.getElementById('carList').innerHTML = `<div class="col-span-1 md:col-span-2 text-center text-red-500 py-12">Hata oluştu blud!</div>`;
+            }
+        }
+        window.onload = loadCars;
+    </script>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 antialiased min-h-screen flex flex-col justify-between">
+    <div>
+        <header class="bg-[#0b0f19]/80 backdrop-blur-md border-b border-slate-800/60 px-6 py-4">
+            <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+                <span class="text-2xl font-black tracking-wider text-white">NC <span class="text-blue-500">MOTORS</span></span>
+                <div class="flex items-center gap-4">
+                    <a href="https://instagram.com/_ncmotors_" target="_blank" class="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-pink-400 transition"><i class="fa-brands fa-instagram text-pink-500"></i><span>Instagram</span></a>
+                    <a href="https://wa.me/905469190660" target="_blank" class="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-green-400 transition"><i class="fa-brands fa-whatsapp text-green-500"></i><span>WhatsApp</span></a>
+                </div>
+            </div>
+        </header>
+
+        <section class="max-w-6xl mx-auto px-6 pt-16 pb-8 text-center space-y-4">
+            <h2 class="text-4xl md:text-6xl font-black tracking-tight text-white">Premium Araç <span class="text-blue-500">Koleksiyonu</span></h2>
+            <p class="text-slate-400 max-w-xl mx-auto text-sm md:text-base font-medium">NC Motors güvencesiyle hayalinizdeki araca ilk adımı atın.</p>
+        </section>
+
+        <main class="max-w-6xl mx-auto px-6 pb-24">
+            <div id="carList" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
+        </main>
+    </div>
+
+    <footer class="border-t border-slate-800/80 bg-slate-950/50 py-8 px-6 text-center text-sm text-slate-500">
+        <p>&copy; 2026 NC Motors. Tüm hakları saklıdır.</p>
+        <p class="font-bold tracking-widest text-xs uppercase text-slate-400 mt-2">design by <span class="text-blue-500">KUT DESIGN AGENCY</span></p>
+    </footer>
+</body>
+</html>

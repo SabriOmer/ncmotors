@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>NC Motors | Yönetim Paneli</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, collection, addDoc, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDkn3Lppv_nGBy5mDkaRAPUkhBLhdFfOkc",
+            authDomain: "nc-motors.firebaseapp.com",
+            projectId: "nc-motors",
+            storageBucket: "nc-motors.firebasestorage.app",
+            messagingSenderId: "251338263435",
+            appId: "1:251338263435:web:bc0b5e00aa5dd32c2cbd8e",
+            measurementId: "G-N3TL2HW4QD"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.checkPassword = async function() {
+            const inputPass = document.getElementById('adminPass').value;
+            try {
+                // Tam senin ekran görüntündeki yol: settings -> admin
+                const docRef = doc(db, "settings", "admin");
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists() && String(docSnap.data().password).trim() === String(inputPass).trim()) {
+                    document.getElementById('loginArea').classList.add('hidden');
+                    document.getElementById('panelArea').classList.remove('hidden');
+                    loadAdminCars();
+                } else {
+                    alert('Şifre yanlış kanka! Firebase\'deki şifreyle birebir aynı yazdığına emin ol (s harfine dikkat gng) xD');
+                }
+            } catch(e) {
+                alert("Bağlantı hatası: " + e.message);
+            }
+        }
+
+        window.addCar = async function(e) {
+            e.preventDefault();
+            const carData = {
+                title: document.getElementById('carTitle').value,
+                model: document.getElementById('carModel').value,
+                km: document.getElementById('carKm').value,
+                price: document.getElementById('carPrice').value,
+                img: document.getElementById('carImg').value,
+                desc: document.getElementById('carDesc').value,
+                status: "active",
+                date: new Date().toISOString()
+            };
+
+            try {
+                await addDoc(collection(db, "cars"), carData);
+                alert("İlan yayında! :D");
+                document.getElementById('carForm').reset();
+                loadAdminCars();
+            } catch(e) {
+                alert("Ekleme hatası: " + e.message);
+            }
+        }
+
+        async function loadAdminCars() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "cars"));
+                const adminCarList = document.getElementById('adminCarList');
+                adminCarList.innerHTML = "";
+
+                querySnapshot.forEach((carDoc) => {
+                    const car = carDoc.data();
+                    const carId = carDoc.id;
+                    const isSold = car.status === "sold";
+
+                    const row = `
+                        <div class="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-xl">
+                            <div>
+                                <p class="font-bold text-sm ${isSold ? 'line-through text-slate-500' : 'text-white'}">${car.title}</p>
+                                <p class="text-xs text-slate-400">${car.model} - ${isSold ? 'SATILDI' : 'Stokta'}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="markAsSold('${carId}')" class="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs font-bold rounded-lg transition ${isSold ? 'hidden' : ''}">Satıldı Yap</button>
+                                <button onclick="deleteCar('${carId}')" class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition">Sil</button>
+                            </div>
+                        </div>
+                    `;
+                    adminCarList.innerHTML += row;
+                });
+            } catch(e) {
+                console.log("İlanlar çekilemedi veya henüz ilan yok.");
+            }
+        }
+
+        window.markAsSold = async function(id) {
+            if(confirm("Bu arabayı satıldı olarak işaretlemek istiyor musun blud?")) {
+                const carRef = doc(db, "cars", id);
+                await updateDoc(carRef, { status: "sold" });
+                alert("Araba satıldı olarak güncellendi! :P");
+                loadAdminCars();
+            }
+        }
+
+        window.deleteCar = async function(id) {
+            if(confirm("Bu ilanı tamamen silmek istediğine emin misin esnaf adam?")) {
+                const carRef = doc(db, "cars", id);
+                await deleteDoc(carRef);
+                alert("İlan kökten silindi!");
+                loadAdminCars();
+            }
+        }
+    </script>
+</head>
+<body class="bg-[#0b0f19] text-slate-100 antialiased p-6">
+    <div id="loginArea" class="max-w-md mx-auto mt-20 p-8 bg-slate-900 border border-slate-800 rounded-3xl text-center shadow-xl">
+        <h1 class="text-2xl font-black mb-6">NC MOTORS PANEL</h1>
+        <input type="password" id="adminPass" placeholder="Sifreyi Gir" class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white mb-4 focus:outline-none text-center">
+        <button onclick="checkPassword()" class="w-full py-3 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold">Giriş Yap</button>
+    </div>
+
+    <div id="panelArea" class="hidden max-w-xl mx-auto space-y-8">
+        <div class="p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-xl">
+            <h2 class="text-xl font-extrabold mb-6">Yeni İlan Ekle</h2>
+            <form id="carForm" onsubmit="addCar(event)" class="space-y-4">
+                <input type="text" id="carTitle" placeholder="İlan Başlığı" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                <input type="text" id="carModel" placeholder="Marka / Model" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                <input type="number" id="carKm" placeholder="Kilometre" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                <input type="number" id="carPrice" placeholder="Fiyat (TL)" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                <input type="url" id="carImg" placeholder="Foto Linki (URL)" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl">
+                <textarea id="carDesc" placeholder="Araç Açıklaması" required class="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl resize-none" rows="3"></textarea>
+                <button type="submit" class="w-full py-4 bg-blue-600 hover:bg-blue-700 font-bold rounded-xl">İlanı Canlıya Al</button>
+            </form>
+        </div>
+
+        <div class="p-8 bg-slate-900 border border-slate-800 rounded-3xl shadow-xl">
+            <h3 class="text-lg font-bold mb-4 text-blue-500">Mevcut İlanları Yönet</h3>
+            <div id="adminCarList" class="space-y-3"></div>
+        </div>
+    </div>
+</body>
+</html>
